@@ -29,6 +29,7 @@ namespace UserMan.API.Controllers
 
         [HttpGet]
         [Route("GetAllUsers")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -69,6 +70,7 @@ namespace UserMan.API.Controllers
 
 
         [HttpGet]
+        [Authorize]
         [Route("GetAUser")]
         public ActionResult<ApiResponse> Get(string id)
         {
@@ -94,7 +96,7 @@ namespace UserMan.API.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult> Register([FromBody] RegisterDto registerDto)
+        public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterDto registerDto)
         {
           
             try
@@ -110,7 +112,7 @@ namespace UserMan.API.Controllers
                     return BadRequest(ModelState);
                 }
 
-                return Ok();
+                return new ApiResponse { IsSuccess =  true, StatusCode = HttpStatusCode.Created,Messages = "User Registration Successful" };
             }
             catch (System.Exception ex)
             {
@@ -126,7 +128,7 @@ namespace UserMan.API.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult> Login([FromBody] LoginDto loginDto)
+        public async Task<ActionResult<ApiResponse>> Login([FromBody] LoginDto loginDto)
         {
 
             try
@@ -138,7 +140,7 @@ namespace UserMan.API.Controllers
                     return Unauthorized();
                 }
 
-                return Ok(authResponse);
+                return new ApiResponse { IsSuccess = true, StatusCode = HttpStatusCode.OK ,Messages = "User Login Successful" , Result = authResponse };
             }
             catch (System.Exception)
             {
@@ -235,7 +237,7 @@ namespace UserMan.API.Controllers
                 }
                 else
                 {
-                    var theusers = _mapper.Map<UserDto>(users);
+                    var theusers = _mapper.Map<IEnumerable<UserDto>>(users);
                     return new ApiResponse { StatusCode = HttpStatusCode.OK, IsSuccess = true, Result = theusers };
                 }
             }

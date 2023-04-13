@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using UserManagement.API.Dto;
 using UserManagement.Domain.Entities;
 using UserManagement.Domain.RequestDto;
 
