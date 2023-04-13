@@ -1,6 +1,6 @@
 ﻿using System.Net;
 
-namespace UserMan.API.Dto
+namespace UserManagement.API.Dto
 {
     public class ApiResponse
     {

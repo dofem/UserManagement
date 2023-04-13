@@ -29,7 +29,7 @@ namespace UserMan.DataAccess.Implementation
             Save();
         }
 
-        public void Delete(int id)
+        public void Delete(string id)
         {
             T entity = _context.Set<T>().Find(id);
             _context.Set<T>().Remove(entity);
@@ -41,7 +41,7 @@ namespace UserMan.DataAccess.Implementation
             return _context.Set<T>().Where(predicate);
         }
 
-        public T Get(int id)
+        public T Get(string id)
         {
             return _context.Set<T>().Find(id);
         }

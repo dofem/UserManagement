@@ -10,12 +10,12 @@ namespace UserManagement.Domain.Repository
     public interface IGenericRepository<T> where T : class
     {
         IEnumerable<T> GetAll();
-        T Get(int id);
+        T Get(string id);
         IEnumerable<T> Find(Expression<Func<T,bool>> predicate);
         void Add(T entity); 
         void AddRange(IEnumerable<T> entities);
         void Update(T entity);
-        void Delete(int id);
+        void Delete(string id);
         void Save();
     }
 }

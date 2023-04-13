@@ -1,15 +1,14 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using Newtonsoft.Json;
-using System.Linq.Expressions;
 using System.Net;
-using System.Reflection;
-using UserMan.API.Dto;
-using UserMan.DataAccess.Implementation;
+using UserManagement.API.Dto;
 using UserManagement.Domain.Entities;
 using UserManagement.Domain.Repository;
+using UserManagement.Domain.RequestDto;
 
 namespace UserMan.API.Controllers
 {
@@ -71,7 +70,7 @@ namespace UserMan.API.Controllers
 
         [HttpGet]
         [Route("GetAUser")]
-        public ActionResult<ApiResponse> Get(int id)
+        public ActionResult<ApiResponse> Get(string id)
         {
             try
             {
@@ -80,7 +79,8 @@ namespace UserMan.API.Controllers
                 {
                     return new ApiResponse { StatusCode = HttpStatusCode.NotFound, Messages = "No User Found" };
                 }
-                return new ApiResponse { StatusCode = HttpStatusCode.OK, IsSuccess = true, Result = user };
+                var theuser = _mapper.Map<UserDto>(user);
+                return new ApiResponse { StatusCode = HttpStatusCode.OK, IsSuccess = true, Result = theuser };
             }
             catch (Exception ex) 
             {
@@ -90,46 +90,136 @@ namespace UserMan.API.Controllers
 
 
         [HttpPost]
-        public ActionResult<ApiResponse> CreateUser(UserDto user)
+        [Route("Register")]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult> Register([FromBody] RegisterDto registerDto)
         {
+          
             try
             {
-                if (user == null)
+                var errors = await _unitOfWork.User.Register(registerDto);
+
+                if (errors.Any())
                 {
-                    return new ApiResponse { StatusCode = HttpStatusCode.BadRequest, Messages = "Invalid Operation" };
+                    foreach (var error in errors)
+                    {
+                        ModelState.AddModelError(error.Code, error.Description);
+                    }
+                    return BadRequest(ModelState);
                 }
-                var newUser = _mapper.Map<User>(user);
-                _unitOfWork.User.Add(newUser);
-                return new ApiResponse { StatusCode = HttpStatusCode.Created, IsSuccess = true, Messages = "User Profile Created Successfully" };
+
+                return Ok();
             }
-            catch (Exception ex) 
+            catch (System.Exception ex)
             {
-                return new ApiResponse { StatusCode = HttpStatusCode.InternalServerError, Messages = ex.Message, IsSuccess = false };
+                return Problem($"something went wrong in the {nameof(Register)},Please contact Support", statusCode: 500);
             }
+
         }
 
+    
+        
+        [HttpPost]
+        [Route("login")]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult> Login([FromBody] LoginDto loginDto)
+        {
+
+            try
+            {
+                var authResponse = await _unitOfWork.User.Login(loginDto);
+
+                if (authResponse == null)
+                {
+                    return Unauthorized();
+                }
+
+                return Ok(authResponse);
+            }
+            catch (System.Exception)
+            {
+                return Problem($"Something went wrong in the {nameof(Login)},Please contact Support", statusCode: 500);
+            }
+
+        }
+
+
+        //[HttpPost]
+        //public ActionResult<ApiResponse> CreateUser(UserDto user)
+        //{
+        //    try
+        //    {
+        //        if (user == null)
+        //        {
+        //            return new ApiResponse { StatusCode = HttpStatusCode.BadRequest, Messages = "Invalid Operation" };
+        //        }
+        //        var newUser = _mapper.Map<User>(user);
+        //        _unitOfWork.User.Add(newUser);
+        //        return new ApiResponse { StatusCode = HttpStatusCode.Created, IsSuccess = true, Messages = "User Profile Created Successfully" };
+        //    }
+        //    catch (Exception ex) 
+        //    {
+        //        return new ApiResponse { StatusCode = HttpStatusCode.InternalServerError, Messages = ex.Message, IsSuccess = false };
+        //    }
+        //}
+
+
+
+
         [HttpPut]
-        public IActionResult UpdateUser(UserDto user)
+        [Route("UpdateAUserProfile")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public ActionResult<ApiResponse> UpdateUser(UserDto user)
         {
             if (user == null)
             {
-                return BadRequest();
+                return new ApiResponse { IsSuccess = false , StatusCode = HttpStatusCode.BadRequest};
             }
-            var updatedUser = _mapper.Map<User>(user);
+            var userTobeUpdated =  _unitOfWork.User.Get(user.Id);
+            if (userTobeUpdated == null)
+            {
+                return new ApiResponse { StatusCode = HttpStatusCode.NotFound, Messages = "No User Found" };
+            }
+            var updatedUser = _mapper.Map<User>(userTobeUpdated);
             _unitOfWork.User.Update(updatedUser);
             return Ok();
         }
 
+
+
+
+
         [HttpDelete]
-        public IActionResult DeleteUser(int id)
+        [Route("DeleteAUserProfile")]
+        [Authorize(Roles ="Administrator")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public ActionResult<ApiResponse> DeleteUser(string id)
         {
+            var user = _unitOfWork.User.Get(id);
+            if (user == null) 
+            {
+                return new ApiResponse { StatusCode = HttpStatusCode.NotFound, Messages = "No User Found" };
+            }
              _unitOfWork.User.Delete(id);
-             return Ok();
+             return new ApiResponse { IsSuccess=true,StatusCode = HttpStatusCode.OK , Messages = "User Account Deleted Successfully" };
 
         }
 
 
+
+
         [HttpGet("FindUser")]
+        [Authorize(Roles ="Administrator")]
         public ActionResult<ApiResponse> FindUsers(int? age, string? gender, string? maritalStatus, string? location)
         {
             try
@@ -145,7 +235,8 @@ namespace UserMan.API.Controllers
                 }
                 else
                 {
-                    return new ApiResponse { StatusCode = HttpStatusCode.OK, IsSuccess = true, Result = users };
+                    var theusers = _mapper.Map<UserDto>(users);
+                    return new ApiResponse { StatusCode = HttpStatusCode.OK, IsSuccess = true, Result = theusers };
                 }
             }
             catch (Exception ex)
